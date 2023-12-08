@@ -1,0 +1,149 @@
+// app.get("/my/chatting/friend/list", (req, res) => {
+//   const { uid } = req.headers;
+//   console.log(uid);
+//   const query = `SELECT participateRoomId FROM elitepro_chat.participate WHERE participateUserId = '${uid}'`;
+
+//   // const myChatQuery = `SELECT p1.participateRoomId, cu.*, mgs.messageContent, mgs.messageTimeStamp
+//   // FROM elitepro_chat.participate p1
+//   // LEFT JOIN elitepro_chat.participate p2 ON p1.participateRoomId = p2.participateRoomId
+//   //   AND p2.participateUserId != '${uid}'
+//   // INNER JOIN elitepro_chat.users cu ON p2.participateUserId = cu.PersonID
+//   // INNER JOIN elitepro_chat.room rom ON p1.participateRoomId = rom.roomId
+//   // LEFT JOIN elitepro_chat.message mgs ON rom.lastMessageId = mgs.messageId
+//   // WHERE p1.participateUserId != '${uid}'
+//   // GROUP BY p1.participateRoomId;
+//   // `;
+
+//   pool.query(query, (err, result) => {
+//     if (err) {
+//       console.log(err);
+//       res.status(400).json({
+//         status: "error",
+//         message: "your message getting fail.",
+//         error: err.message,
+//       });
+//     } else {
+//       console.log(result[0].participateRoomId);
+
+//       const myChatQuery = `SELECT* FROM elitepro_chat.participate p1
+//       INNER JOIN elitepro_chat.users cu ON p1.participateUserId = cu.PersonID
+//       INNER JOIN elitepro_chat.room rom ON p1.participateRoomId = rom.roomId
+//       LEFT JOIN elitepro_chat.message mgs ON rom.lastMessageId = mgs.messageId
+//       WHERE participateRoomId = '${result[0].participateRoomId}'
+//   `;
+
+//       pool.query(myChatQuery, (err, results) => {
+//         if (err) {
+//           console.log(err);
+//           res.status(400).json({
+//             status: "error",
+//             message: "your message getting fail.",
+//             error: err.message,
+//           });
+//         } else {
+//           console.log(results);
+//           const newResult = results.filter((us) => us.PersonID !== uid);
+//           res.status(400).json({
+//             status: "success",
+//             message: "your message getting successful.",
+//             result: newResult,
+//           });
+//         }
+//       });
+//     }
+//   });
+// });
+
+// group chat member add
+// app.post("/group/member/add", (req, res) => {
+//   const {
+//     PersonID,
+//     firstName,
+//     lastName,
+//     profilePic,
+//     accountType,
+//     webName,
+//     participateUserId,
+//     participateRoomId,
+//   } = req.body;
+//   const userQuery = `SELECT PersonID FROM elitepro_chat.users WHERE PersonID = '${req.body?.PersonID}'`;
+//   pool.query(userQuery, async (userCheckErr, result) => {
+//     if (userCheckErr) {
+//       console.log("user check error", userCheckErr);
+//       res.status(400).json({
+//         status: "success",
+//         message: "group member add fail.",
+//         error: userCheckErr.message,
+//       });
+//     } else {
+//       if (result.length === 0) {
+//         console.log(result, 0);
+//         await createUser([
+//           { PersonID, firstName, lastName, profilePic, accountType, webName },
+//         ]);
+//         await createParticipationGroup({
+//           participateUserId,
+//           participateRoomId,
+//         });
+
+//         res.status(200).json({
+//           status: "success",
+//           message: "group member add successful.",
+//           result,
+//         });
+//       } else {
+//         console.log(result[0].PersonID, "els user gett");
+//         const participateMemberCheck = `SELECT* FROM  elitepro_chat.participate WHERE participateUserId='${participateUserId}' AND participateRoomId='${participateRoomId}'`;
+//         pool.query(participateMemberCheck, (memberCheckErr, memberResult) => {
+//           if (memberCheckErr) {
+//             console.log("memberCheckErr", memberCheckErr);
+//           } else {
+//             if (memberResult.length === 0) {
+//               const participateQuery =
+//                 "INSERT INTO elitepro_chat.participate SET ?";
+//               pool.query(
+//                 participateQuery,
+//                 [{ participateUserId, participateRoomId }],
+//                 (err, result) => {
+//                   if (err) {
+//                     console.log(err);
+//                     res.status(400).json({
+//                       status: "error",
+//                       message: "group member add fail.",
+//                       error: err.message,
+//                     });
+//                   } else {
+//                     console.log(result);
+//                     res.status(200).json({
+//                       status: "success",
+//                       message: "group member add successful.",
+//                       result,
+//                     });
+//                   }
+//                 }
+//               );
+//               console.log(memberResult, "This member is no exjest");
+//             } else {
+//               console.log(memberResult, "This member already exists els");
+//               res.status(200).json({
+//                 status: "success",
+//                 message: "This member already exists.",
+//                 memberResult,
+//               });
+//             }
+//           }
+//         });
+//       }
+//     }
+//   });
+// });
+
+// async function createParticipationGroup(user) {
+//   const participateQuery =
+//     "INSERT INTO elitepro_chat.participate (participateUserId, participateRoomId) VALUES ?";
+
+//   await queryAsync(participateQuery, [
+//     user?.participateUserId,
+//     user?.participateRoomId,
+//   ]);
+// }
