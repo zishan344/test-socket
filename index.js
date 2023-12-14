@@ -10,7 +10,7 @@ const port = process.env.PORT || 5080;
 // database connection start
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://hire.elite-professionals.in"],
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
     allowedHeaders: [
       "Content-Type",
