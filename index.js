@@ -4,10 +4,29 @@ const dotenv = require("dotenv");
 const cors = require("cors");
 dotenv.config();
 app.use(express.json());
-app.use(cors());
-const port = process.env.PORT || 6000;
+// const port = process.env.PORT || 6000;
+const port = process.env.PORT || 5080;
+
+//all routers import
+const chatAppRoutersV1 = require("./App/chatV1/routers/chatApp.routes");
 
 // database connection start
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://hire.elite-professionals.in"],
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Control-Allow-Headers",
+      "uid",
+      "Access-Control-Allow-Headers",
+    ],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
+
 const mysql = require("mysql");
 
 // Create a connection pool
@@ -30,91 +49,13 @@ pool.getConnection((err, connection) => {
 });
 // database connection End
 
+app.use("/api/v1", chatAppRoutersV1);
+
 // custom package
 const { v4: uuidv4 } = require("uuid");
-
-// create chat
-app.post("/createChat", async (req, res) => {
-  const { users, message: reqMessage } = req.body;
-
-  if (!users) {
-    return res.status(400).json({
-      status: false,
-      message: "No user data provided",
-    });
-  }
-
-  try {
-    const roomId = uuidv4();
-    const searchQueryUserPersonID = users.map((user) => [user.PersonID]);
-    const roomData = [roomId, null];
-    const searchQuery = `SELECT PersonID FROM elitepro_chat.users WHERE PersonID IN (?)`;
-    const searchResult = await queryAsync(searchQuery, [
-      searchQueryUserPersonID,
-    ]);
-
-    const newUser = users.filter(
-      (user) =>
-        !searchResult.some(
-          (searchUser) => searchUser.PersonID === user.PersonID
-        )
-    );
-
-    // console.log(newUser, "new user ");
-
-    const createUserResult = await createUser(newUser);
-    if (createUserResult?.success) {
-      await createRoom(roomData);
-      await createParticipation(newUser, roomId);
-      if (reqMessage) {
-        const checkMessagePerson = users.find(
-          (user) => user?.PersonID === reqMessage?.messageUserId
-        );
-        if (checkMessagePerson) {
-          const message = { ...reqMessage, messageRoomId: roomId };
-          await sendMessage(message);
-          res.status(200).json({
-            status: true,
-            message: "Chat created successfully",
-          });
-        } else {
-          res.status(400).json({
-            status: false,
-            message: "Chat created successfully but message send fail!",
-            error: "your message user id is not right",
-          });
-        }
-      }
-    } else {
-      if (reqMessage) {
-        const requestMessageQueryResult = await personIdThenRoomIdReturnFromDB(
-          reqMessage
-        );
-        if (requestMessageQueryResult?.success) {
-          res.status(200).json({
-            status: true,
-            message: "user already exists but message send successful",
-          });
-        } else {
-          const { error } = requestMessageQueryResult;
-          res.status(400).json({
-            status: false,
-            message: "user already exists and message send fail!",
-            error: error.message,
-          });
-        }
-      } else {
-        res.status(200).json({
-          status: true,
-          message: "user already exists",
-        });
-      }
-    }
-  } catch (error) {
-    console.error(error);
-    throw new CustomErrorHandler("Failed to create chat", error, 400);
-  }
-});
+const {
+  globalErrorHandler,
+} = require("./middleware/globalErrorHandler/globalErrorHandler");
 
 async function queryAsync(query, values) {
   return new Promise((resolve, reject) => {
@@ -156,22 +97,8 @@ async function createUser(users) {
 // create room
 async function createRoom(roomData) {
   const roomQuery =
-    "INSERT INTO elitepro_chat.room (roomId, lastMessageId) VALUES ?";
+    "INSERT INTO elitepro_chat.room (roomId, lastMessageId, groupName, groupAdminPersonId) VALUES ?";
   await queryAsync(roomQuery, [[roomData]]);
-}
-
-// create participation
-async function createParticipation(userData, roomId) {
-  if (userData.length === 0) {
-    return;
-  }
-  const participateValues = userData.map((user) => [user.PersonID, roomId]);
-  const participateQuery =
-    "INSERT INTO elitepro_chat.participate (participateUserId, participateRoomId) VALUES ?";
-  await queryAsync(participateQuery, [participateValues]);
-  return {
-    success: true,
-  };
 }
 
 // user personId send then room id return
@@ -204,21 +131,23 @@ class CustomErrorHandler extends Error {
 }
 
 // Global error handler middleware
-app.use((err, req, res, next) => {
-  // You can customize the response based on the type of error
-  if (err instanceof CustomErrorHandler) {
-    return res.status(err.statusCode || 500).json({
-      status: false,
-      message: err.message,
-      error: err,
-    });
-  }
-  // Generic error response
-  res.status(500).json({
-    status: false,
-    message: "Internal server error",
-  });
-});
+// app.use((err, req, res, next) => {
+//   // You can customize the response based on the type of error
+//   if (err instanceof CustomErrorHandler) {
+//     return res.status(err.statusCode || 500).json({
+//       status: false,
+//       message: err.message,
+//       error: err,
+//     });
+//   }
+//   // Generic error response
+//   res.status(500).json({
+//     status: false,
+//     message: "Internal server error",
+//   });
+// });
+
+app.use(globalErrorHandler);
 
 app.post("/send/message", async (req, res) => {
   try {
@@ -236,17 +165,6 @@ app.post("/send/message", async (req, res) => {
     });
   }
 });
-
-// sending message
-async function sendMessage(userMessageData) {
-  const { messageRoomId, messageContent, messageUserId } = userMessageData;
-  const messageId = uuidv4();
-  const userMessage = [messageId, messageRoomId, messageContent, messageUserId];
-  const sendMessageQuery =
-    "INSERT INTO elitepro_chat.message (messageId, messageRoomId, messageContent, messageUserId) VALUES (?)";
-  await queryAsync(sendMessageQuery, [userMessage]);
-  await lastMessageIdInsert(messageId, messageRoomId);
-}
 
 // update last message
 async function lastMessageIdInsert(messageId, roomId) {
@@ -335,6 +253,32 @@ app.get("/my/chatting/friend/list", (req, res) => {
   });
 });
 
+// Create Group
+app.post("/create/group", async (req, res) => {
+  try {
+    const { groupAdmin, groupMember } = req.body;
+    // console.log(req.body.groupAdmin);
+    const roomId = uuidv4();
+    const createRoomData = [
+      roomId,
+      null,
+      groupAdmin?.groupName,
+      groupAdmin?.groupAdminPersonId,
+    ];
+
+    console.log(createRoomData);
+
+    await createRoom(createRoomData);
+    await createParticipation(groupMember, roomId);
+    res.status(200).json({
+      success: true,
+    });
+  } catch (err) {
+    // throw new CustomErrorHandler("Group create Problem", err, 400);
+    // console.log(err);
+  }
+});
+
 // group member add
 app.post("/group/member/add", async (req, res) => {
   const {
@@ -385,7 +329,7 @@ app.post("/group/member/add", async (req, res) => {
           [{ participateUserId, participateRoomId }],
           (err, result) => {
             if (err) {
-              console.log(err);
+              // console.log(err);
               res.status(400).json({
                 status: false,
                 message: "Group member add failed.",
@@ -472,7 +416,7 @@ app.get("/all/conversion/message", (req, res) => {
 
   pool.query(messageQuery, [roomid], (err, result) => {
     if (err) {
-      console.log(err);
+      // console.log(err);
       res.status(400).json({
         status: false,
         message: "Conversion message retrieval failed.",
@@ -506,12 +450,27 @@ const server = app.listen(port, () => {
 const io = require("socket.io")(server, {
   pingTimeout: 60000,
   cors: {
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "https://hire.elite-professionals.in"],
     credentials: true,
+    methods: ["GET", "POST"],
+    allowedHeaders: [
+      "Access-Control-Allow-Headers",
+      "X-Requested-With",
+      "X-Access-Token",
+      "Content-Type",
+      "Host",
+      "Accept",
+      "Connection",
+      "Cache-Control",
+      "Access-Control-Allow-Origin",
+    ],
+    optionsSuccessStatus: 200,
   },
+  transports: ["websocket", "polling"],
 });
 
 io.on("connection", (socket) => {
+  console.log("socket connection io");
   socket.on("setup", (userData) => {
     socket.join(userData?.PersonID);
     socket.emit("connected");
@@ -534,6 +493,11 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    // console.log("User disconnected");
+    console.log("User disconnected");
+  });
+
+  // Event listener for the 'error' event
+  socket.on("error", (err) => {
+    console.error("Socket error:", err);
   });
 });

@@ -1,22 +1,25 @@
 const mysql = require("mysql");
+const dbConfig = require("./dbConfig");
 
 // Create a connection pool
-const pool = mysql.createPool({
-  host: process.env.DATABASE_HOST,
-  user: process.env.DATABASE_USER,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_DATABASE,
-  connectTimeout: 30000,
-});
+const pool = mysql.createPool(dbConfig);
 
-// Function to handle database connection errors
-pool.getConnection((err, connection) => {
-  if (err) {
-    console.error("Database connection failed: " + err.message);
-  } else {
-    console.log("Database connection is successful");
-    connection.release(); // Release the connection back to the pool
-  }
-});
+async function connectToDatabase() {
+  return new Promise((resolve, reject) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error("Database connection failed: " + err.message);
+        reject(err);
+      } else {
+        console.log("Database connection is successful");
+        connection.release();
+        resolve();
+      }
+    });
+  });
+}
 
-module.exports = pool;
+module.exports = {
+  connectToDatabase,
+  pool,
+};
