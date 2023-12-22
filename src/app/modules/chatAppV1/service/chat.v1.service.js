@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { queryAsync } = require("../../../../../db/dbAsync");
+const AppError = require("../../../middleware/customAppErrorHandler/customAppErrorHandler");
 
 // create user service
 const createUserFromDB = async (users) => {
@@ -17,7 +18,7 @@ const createUserFromDB = async (users) => {
     user.firstName,
     user.lastName,
     user.profilePic,
-    user.userRole,
+    user.accountType,
     user.webName,
   ]);
 
@@ -58,6 +59,12 @@ const sendMessageFromDB = async (userMessageData) => {
   await queryAsync(sendMessageQuery, [userMessage]);
   await lastMessageIdInsertFromDB(messageId, messageRoomId);
 };
+// // sending message service
+// const editMessageFromDB = async (payload) => {
+//   const sendMessageQuery =
+//     "UPDATE INTO elitepro_chat.message (messageId,  messageContent, messageUserId) VALUES (?)";
+//   const result = await queryAsync(sendMessageQuery, [payload]);
+// };
 
 // update last message service
 const lastMessageIdInsertFromDB = async (messageId, roomId) => {
@@ -75,28 +82,34 @@ const receivedUidReturnRoomIdFromDB = async (uid) => {
 };
 
 // this function received  user personId and roomId then return chat friend list
-const userChatFriendListFromDB = async (data) => {
-  const { roomIdFromDB, PersonID } = data;
+const userChatFriendListFromDB = async (payload) => {
+  const { roomIdFromDB, uid } = payload;
   const roomIds = roomIdFromDB.map((row) => row.participateRoomId).join("','");
   const myChatQuery = `
-    SELECT cu.*, mgs.messageId, mgs.messageContent, mgs.messageTimeStamp, rom.roomId, rom.groupName, rom.lastMessageId, p1.isDelete
+    SELECT cu.*, mgs.messageId, mgs.messageContent, mgs.messageTimeStamp, rom.*, p1.isDelete
     FROM elitepro_chat.participate p1
     INNER JOIN elitepro_chat.users cu ON p1.participateUserId = cu.PersonID
     INNER JOIN elitepro_chat.room rom ON p1.participateRoomId = rom.roomId
     LEFT JOIN elitepro_chat.message mgs ON rom.lastMessageId = mgs.messageId
     WHERE p1.participateRoomId IN ('${roomIds}')
-      AND p1.participateUserId != '${String(PersonID)}';
+      AND p1.participateUserId != '${String(uid)}';
   `;
   const results = await queryAsync(myChatQuery);
-  console.log(results);
   const groupedData = {};
   results.forEach((item) => {
-    const { roomId, groupName, messageContent, lastMessageId } = item;
+    const {
+      roomId,
+      groupName,
+      groupAdminPersonId,
+      messageContent,
+      lastMessageId,
+    } = item;
 
     if (!groupedData[roomId]) {
       groupedData[roomId] = {
         roomId,
         groupName,
+        groupAdminPersonId,
         messageContent,
         lastMessageId,
         participants: [],
@@ -112,25 +125,66 @@ const userChatFriendListFromDB = async (data) => {
       webName,
       createUserTimeStamp,
       messageId,
-
       messageTimeStamp,
       isDelete,
     } = item;
 
-    groupedData[roomId].participants.push({
-      PersonID,
-      firstName,
-      lastName,
-      profilePic,
-      accountType,
-      webName,
-      createUserTimeStamp,
-      messageId,
-      messageTimeStamp,
-      isDelete,
-    });
+    if (!(uid === PersonID)) {
+      groupedData[roomId].participants.push({
+        PersonID,
+        firstName,
+        lastName,
+        profilePic,
+        accountType,
+        webName,
+        createUserTimeStamp,
+        messageId,
+        messageTimeStamp,
+        isDelete,
+      });
+    }
   });
   const result = Object.values(groupedData);
+  return result;
+};
+
+// this is edit group name
+// const editGroupNameFromDB = async (payload) => {
+//   const { roomId, groupAdminPersonId, groupName } = payload;
+//   console.log(payload);
+//   const updateGroupData = `UPDATE elitepro_chat.room SET groupName = ? WHERE roomId = ? AND groupAdminPersonId = ?
+// `;
+//   const result = await queryAsync(updateGroupData, [
+//     roomId,
+//     groupAdminPersonId,
+//     groupName,
+//   ]);
+//   return result;
+// };
+
+const editGroupNameFromDB = async (payload) => {
+  const { roomId, groupAdminPersonId, groupName } = payload;
+  if (!roomId) {
+    throw new AppError("room id is missing pleas provide room id.", 400);
+  } else if (!groupAdminPersonId) {
+    throw new AppError(
+      "group admin person id is missing please provide admin id",
+      400
+    );
+  } else if (!groupName) {
+    throw new AppError("group name is missing please provide group name.", 400);
+  }
+
+  const updateGroupData = `
+      UPDATE elitepro_chat.room
+      SET groupName = ?
+      WHERE roomId = ? AND groupAdminPersonId = ?
+    `;
+  const result = await queryAsync(updateGroupData, [
+    groupName,
+    roomId,
+    groupAdminPersonId,
+  ]);
   return result;
 };
 
@@ -168,7 +222,6 @@ const groupParticipateUserInsertFromDB = async (payload) => {
 };
 
 // this is all conversion message getting from DB
-
 const allConversionMessageFromDB = async (payload) => {
   const { roomid: roomId } = payload;
   const messageQuery = `
@@ -190,6 +243,7 @@ const allConversionMessageFromDB = async (payload) => {
         .join("','")}')
   `;
   const viewMessageResult = await queryAsync(viewMessage);
+
   const resultArray = message.map((msg) => {
     return {
       message: msg,
@@ -198,7 +252,15 @@ const allConversionMessageFromDB = async (payload) => {
       ),
     };
   });
-  return resultArray;
+
+  // Sort the resultArray based on messageTimeStamp in ascending order
+  const sortedResultArray = resultArray.sort((a, b) => {
+    const dateA = new Date(a.message.messageTimeStamp).getTime();
+    const dateB = new Date(b.message.messageTimeStamp).getTime();
+    return dateA - dateB;
+  });
+
+  return sortedResultArray;
 };
 
 // this is user view message data insert from DB
@@ -236,9 +298,11 @@ module.exports = {
   createRoomFromDB,
   createParticipationFromDB,
   sendMessageFromDB,
+  // editMessageFromDB,
   lastMessageIdInsertFromDB,
   receivedUidReturnRoomIdFromDB,
   userChatFriendListFromDB,
+  editGroupNameFromDB,
   groupParticipateUserCheckFromDB,
   groupParticipateUserBlockFromDB,
   groupParticipateUserDeleteFromDB,

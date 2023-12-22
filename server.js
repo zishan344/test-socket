@@ -1,11 +1,13 @@
 const envConfig = require("./src/app/config/env.config");
 const app = require("./app");
 const { connectToDatabase } = require("./db/dbPoolConnection");
+const configureSocketIO = require("./src/app/socketProgram/socket.io");
 
 async function startServer() {
   const server = app.listen(envConfig.port, () => {
     console.log(`App is listening on port ${envConfig.port}`);
   });
+  configureSocketIO(server);
 
   // Handle graceful shutdown
   process.on("SIGINT", () => {

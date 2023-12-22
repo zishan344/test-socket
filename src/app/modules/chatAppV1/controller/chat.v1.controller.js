@@ -3,11 +3,13 @@ const chatAppServices = require("../service/chat.v1.service");
 const { queryAsync } = require("../../../../../db/dbAsync");
 const { catchAsyncTryCatch } = require("../../../utils/catchAsyncTryCatch");
 const { sendResponse } = require("../../../utils/sendResponse");
+const AppError = require("../../../middleware/customAppErrorHandler/customAppErrorHandler");
 
 // this is test route
 module.exports.testFirstRoute = (req, res) => {
   const id1 = uuidv4();
   const id2 = uuidv4();
+  console.log(id1, id2);
   res.status(200).json({
     success: true,
     message: "chat app server is running and test route is working ",
@@ -19,7 +21,7 @@ module.exports.testFirstRoute = (req, res) => {
 };
 
 // this is create user controller
-module.exports.createChatUser = catchAsyncTryCatch(async (req, res, next) => {
+module.exports.createChatUser = catchAsyncTryCatch(async (req, res) => {
   const { users, message: reqMessage } = req.body;
 
   if (!users) {
@@ -53,7 +55,7 @@ module.exports.createChatUser = catchAsyncTryCatch(async (req, res, next) => {
   const createUserResult = await chatAppServices.createUserFromDB(newUser);
   if (createUserResult?.success) {
     await chatAppServices.createRoomFromDB(roomData);
-    await chatAppServices.createParticipationFromDB(newUser, roomId);
+    await chatAppServices.createParticipationFromDB(users, roomId);
     if (reqMessage) {
       const checkMessagePerson = users.find(
         (user) => user?.PersonID === reqMessage?.messageUserId
@@ -84,7 +86,12 @@ module.exports.createChatUser = catchAsyncTryCatch(async (req, res, next) => {
 module.exports.chatFriendListGetting = catchAsyncTryCatch(
   async (req, res, next) => {
     const { uid } = req.headers;
-
+    if (!uid) {
+      throw new AppError(
+        "User person id is missing please provide user person id.",
+        400
+      );
+    }
     const roomIdFromDB = await chatAppServices.receivedUidReturnRoomIdFromDB(
       uid
     );
@@ -99,6 +106,7 @@ module.exports.chatFriendListGetting = catchAsyncTryCatch(
     }
     const chatList = await chatAppServices.userChatFriendListFromDB({
       roomIdFromDB,
+      uid,
     });
     sendResponse(res, {
       statusCode: 200,
@@ -110,7 +118,7 @@ module.exports.chatFriendListGetting = catchAsyncTryCatch(
 );
 
 // this is group member delete controller
-module.exports.groupMemberBlock = catchAsyncTryCatch(async (req, res, next) => {
+module.exports.groupMemberBlock = catchAsyncTryCatch(async (req, res) => {
   const result = await chatAppServices.groupParticipateUserCheckFromDB(
     req.params
   );
@@ -161,7 +169,7 @@ module.exports.groupMemberDelete = catchAsyncTryCatch(
 );
 
 // this is send message room controller
-module.exports.sendMessageRoom = catchAsyncTryCatch(async (req, res, next) => {
+module.exports.sendMessageRoom = catchAsyncTryCatch(async (req, res) => {
   await chatAppServices.sendMessageFromDB(req.body);
   sendResponse(res, {
     statusCode: 200,
@@ -170,8 +178,19 @@ module.exports.sendMessageRoom = catchAsyncTryCatch(async (req, res, next) => {
   });
 });
 
+// // this is edit message controller
+// module.exports.editMessage = catchAsyncTryCatch(async (req, res, ) => {
+//   console.log(req.body);
+//   const result = await chatAppServices.editMessageFromDB(req.body);
+//   // sendResponse(res, {
+//   //   statusCode: 200,
+//   //   success: true,
+//   //   message: "Message sent successfully.",
+//   // });
+// });
+
 // this is new group create function
-module.exports.newGroupCreate = catchAsyncTryCatch(async (req, res, next) => {
+module.exports.newGroupCreate = catchAsyncTryCatch(async (req, res) => {
   const participateRoomId = uuidv4();
   const { admin, member } = req.body;
   if (!(member.length >= 3)) {
@@ -201,6 +220,16 @@ module.exports.newGroupCreate = catchAsyncTryCatch(async (req, res, next) => {
     message: "new group create successfully.",
   });
 });
+// this is edit group name
+module.exports.editGroupName = catchAsyncTryCatch(async (req, res) => {
+  const result = await chatAppServices.editGroupNameFromDB(req.body);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "edit group name is successfully.",
+    result,
+  });
+});
 
 // this is all conversion message get function
 module.exports.allConversionMessage = catchAsyncTryCatch(
@@ -217,7 +246,7 @@ module.exports.allConversionMessage = catchAsyncTryCatch(
   }
 );
 // this is user conversion message view data inseart function
-module.exports.userViewMessage = catchAsyncTryCatch(async (req, res, next) => {
+module.exports.userViewMessage = catchAsyncTryCatch(async (req, res) => {
   const result = await chatAppServices.userViewMessageFromDB(req.body);
   sendResponse(res, {
     statusCode: 200,

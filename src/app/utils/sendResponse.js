@@ -7,7 +7,7 @@ module.exports.sendResponse = (res, data) => {
   if (data) {
     response.statusCode = data?.statusCode;
     if (data?.result) {
-      response.results = data?.result;
+      response.data = data?.result;
     }
   }
 

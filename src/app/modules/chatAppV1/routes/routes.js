@@ -24,10 +24,20 @@ const chatAppModuleRoutes = [
     path: "/send/message",
     controller: chatAppControllerV1.sendMessageRoom,
   },
+  // {
+  //   method: "post",
+  //   path: "/edit/message",
+  //   controller: chatAppControllerV1.editMessage,
+  // },
   {
     method: "post",
     path: "/new/group/create",
     controller: chatAppControllerV1.newGroupCreate,
+  },
+  {
+    method: "patch",
+    path: "/edit/group/name",
+    controller: chatAppControllerV1.editGroupName,
   },
   {
     method: "delete",
