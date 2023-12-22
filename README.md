@@ -1,2 +1,0 @@
-# MySqlChatApplicationFromNodejs
-# MySqlChatApplicationFromNodejs
