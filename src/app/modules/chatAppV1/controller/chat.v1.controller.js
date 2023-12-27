@@ -35,14 +35,13 @@ module.exports.createChatUser = catchAsyncTryCatch(async (req, res) => {
 
   const roomId = uuidv4();
   const searchQueryUserPersonID = users.map((user) => [user.PersonID]);
-  const roomData = [roomId, null, null, null];
+  const roomData = [roomId, null, null, null, false];
   const searchQuery = `SELECT PersonID FROM elitepro_chat.users WHERE PersonID IN (?)`;
   const searchResult = await queryAsync(searchQuery, [searchQueryUserPersonID]);
   const newUser = await users.filter(
     (user) =>
       !searchResult.some((searchUser) => searchUser.PersonID === user.PersonID)
   );
-  //   console.log(newUser, "newUser");
   if (searchResult.length === users.length) {
     sendResponse(res, {
       statusCode: 200,
@@ -206,6 +205,7 @@ module.exports.newGroupCreate = catchAsyncTryCatch(async (req, res) => {
     null,
     admin?.groupName,
     admin?.groupAdminPersonId,
+    true,
   ];
   await chatAppServices.createRoomFromDB(roomData);
   let newGroupMember = [[admin?.groupAdminPersonId, participateRoomId]];

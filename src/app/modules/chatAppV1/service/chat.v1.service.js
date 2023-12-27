@@ -31,7 +31,7 @@ const createUserFromDB = async (users) => {
 // create room service
 const createRoomFromDB = async (roomData) => {
   const roomQuery =
-    "INSERT INTO elitepro_chat.room (roomId, lastMessageId, groupName, groupAdminPersonId) VALUES ?";
+    "INSERT INTO elitepro_chat.room (roomId, lastMessageId, groupName, groupAdminPersonId, isGroup) VALUES ?";
   await queryAsync(roomQuery, [[roomData]]);
 };
 
@@ -103,6 +103,7 @@ const userChatFriendListFromDB = async (payload) => {
       groupAdminPersonId,
       messageContent,
       lastMessageId,
+      isGroup,
     } = item;
 
     if (!groupedData[roomId]) {
@@ -112,6 +113,7 @@ const userChatFriendListFromDB = async (payload) => {
         groupAdminPersonId,
         messageContent,
         lastMessageId,
+        isGroup,
         participants: [],
       };
     }
