@@ -166,6 +166,30 @@ module.exports.groupMemberDelete = catchAsyncTryCatch(
     });
   }
 );
+// this is group member add controller
+module.exports.groupMemberAdd = catchAsyncTryCatch(async (req, res, next) => {
+  if (!req.body?.participateUserId) {
+    sendResponse(res, {
+      statusCode: 400,
+      success: false,
+      message: "participate UserId is missing",
+    });
+    return;
+  } else if (!req.body?.participateRoomId) {
+    sendResponse(res, {
+      statusCode: 400,
+      success: false,
+      message: "participateRoomId UserId is missing",
+    });
+    return;
+  }
+  await chatAppServices.groupParticipateUserAddFromDB(req.body);
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Group member add is successfully.",
+  });
+});
 
 // this is send message room controller
 module.exports.sendMessageRoom = catchAsyncTryCatch(async (req, res) => {

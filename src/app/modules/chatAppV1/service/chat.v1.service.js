@@ -103,6 +103,7 @@ const userChatFriendListFromDB = async (payload) => {
       groupAdminPersonId,
       messageContent,
       lastMessageId,
+      messageTimeStamp,
       isGroup,
     } = item;
 
@@ -114,6 +115,7 @@ const userChatFriendListFromDB = async (payload) => {
         messageContent,
         lastMessageId,
         isGroup,
+        messageTimeStamp,
         participants: [],
       };
     }
@@ -127,7 +129,6 @@ const userChatFriendListFromDB = async (payload) => {
       webName,
       createUserTimeStamp,
       messageId,
-      messageTimeStamp,
       isDelete,
     } = item;
 
@@ -214,6 +215,33 @@ const groupParticipateUserBlockFromDB = async (id) => {
 const groupParticipateUserDeleteFromDB = async (id) => {
   const participateQuery = `UPDATE elitepro_chat.participate SET isDelete = 'delete' WHERE id = ?`;
   await queryAsync(participateQuery, [id]);
+};
+// this is group user delete from db
+const groupParticipateUserAddFromDB = async (payload) => {
+  const { participateUserId, participateRoomId } = payload;
+
+  // Check if the user is already a participant
+  const thisMemberCheck =
+    "SELECT participateUserId, participateRoomId FROM elitepro_chat.participate WHERE participateUserId = ? AND participateRoomId = ?";
+
+  // Insert the user into the participate table
+  const participateQuery =
+    "INSERT INTO elitepro_chat.participate (participateUserId, participateRoomId) VALUES (?, ?)";
+
+  // Perform the select query to check if the user is already a participant
+  const existingParticipants = await queryAsync(thisMemberCheck, [
+    participateUserId,
+    participateRoomId,
+  ]);
+
+  console.log(existingParticipants);
+
+  // If the user is not already a participant, insert them
+  if (existingParticipants.length === 0) {
+    await queryAsync(participateQuery, [participateUserId, participateRoomId]);
+  } else {
+    throw new AppError("This member is already exist.", 400);
+  }
 };
 
 // this is group participate User add from DB
@@ -308,6 +336,7 @@ module.exports = {
   groupParticipateUserCheckFromDB,
   groupParticipateUserBlockFromDB,
   groupParticipateUserDeleteFromDB,
+  groupParticipateUserAddFromDB,
   groupParticipateUserInsertFromDB,
   allConversionMessageFromDB,
   userViewMessageFromDB,

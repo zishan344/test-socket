@@ -50,6 +50,11 @@ const chatAppModuleRoutes = [
     controller: chatAppControllerV1.groupMemberDelete,
   },
   {
+    method: "post",
+    path: "/group/member/add",
+    controller: chatAppControllerV1.groupMemberAdd,
+  },
+  {
     method: "get",
     path: "/all/conversion/message",
     controller: chatAppControllerV1.allConversionMessage,
